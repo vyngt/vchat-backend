@@ -1,3 +1,3 @@
 fn main() {
-    api::main();
+    service::main();
 }

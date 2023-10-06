@@ -10,8 +10,11 @@ use rocket::{Shutdown, State};
 #[macro_use]
 extern crate rocket;
 
+mod controller;
 mod cors;
 mod db;
+mod errors;
+mod routes;
 mod states;
 
 #[derive(Deserialize, Serialize)]
@@ -96,6 +99,7 @@ pub async fn rocket() -> _ {
 
     rocket::build()
         .attach(cors::CORS)
+        .attach(routes::user::stage())
         .manage(channel::<Message>(1024).0)
         .manage(states::DBState { db })
         .mount("/", routes![post_msg, events, all_options, login])
