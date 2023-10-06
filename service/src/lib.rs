@@ -1,7 +1,11 @@
 use dotenvy::dotenv;
 use migration::MigratorTrait;
-use rocket::http::{Cookie, CookieJar};
-use rocket::response::stream::{Event, EventStream};
+use rocket::http::{Cookie, CookieJar, Status};
+use rocket::request::Request;
+use rocket::response::{
+    content, status,
+    stream::{Event, EventStream},
+};
 use rocket::serde::{json::Json, Deserialize, Serialize};
 use rocket::tokio::select;
 use rocket::tokio::sync::broadcast::{channel, error::RecvError, Sender};
@@ -88,6 +92,15 @@ fn all_options() {
     /* Intentionally left empty */
 }
 
+#[catch(default)]
+fn default_catcher(
+    status: Status,
+    _request: &Request<'_>,
+) -> status::Custom<content::RawJson<String>> {
+    let msg = format!("{}", &status);
+    status::Custom(status, content::RawJson(msg))
+}
+
 #[launch]
 pub async fn rocket() -> _ {
     dotenv().ok();
@@ -103,4 +116,5 @@ pub async fn rocket() -> _ {
         .manage(channel::<Message>(1024).0)
         .manage(states::DBState { db })
         .mount("/", routes![post_msg, events, all_options, login])
+        .register("/", catchers![default_catcher])
 }
