@@ -105,16 +105,17 @@ fn default_catcher(
 pub async fn rocket() -> _ {
     dotenv().ok();
 
-    let db = db::establish_db().await;
+    let conn = db::establish_db().await;
 
     // Run Migrations
-    migration::Migrator::up(&db, None).await.unwrap();
+    migration::Migrator::up(&conn, None).await.unwrap();
 
     rocket::build()
         .attach(cors::CORS)
         .attach(routes::user::stage())
+        .attach(routes::auth::stage())
         .manage(channel::<Message>(1024).0)
-        .manage(states::DBState { db })
+        .manage(states::DBState { conn })
         .mount("/", routes![post_msg, events, all_options, login])
         .register("/", catchers![default_catcher])
 }

@@ -14,3 +14,5 @@ sea-orm = { version = "0.12.3", features = ["sqlx-postgres", "runtime-tokio-rust
 service_entity = { path = "../entity" }
 migration = {path = "../migration" }
 argon2 = "0.5.2"
+chrono = "0.4.31"
+sha256 = "1.4.0"

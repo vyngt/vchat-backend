@@ -1,5 +1,13 @@
+use jsonwebtoken::errors::Error;
+use rocket::http::Status;
+use rocket::request::{FromRequest, Outcome, Request};
+use rocket::State;
+
+use crate::errors::ErrorResponder;
+use crate::states::DBState;
+
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
 
@@ -8,13 +16,39 @@ use sea_orm::*;
 use service_entity::prelude::User as UserEntity;
 use service_entity::user;
 
-use crate::errors::ErrorResponder;
+use super::jwt::{decode_token, Claims};
 
 #[derive(Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
-pub struct User<'r> {
+pub struct User {
     pub id: i32,
-    pub username: &'r str,
+    pub username: String,
+}
+
+impl User {
+    pub async fn from_jwt_claims(claims: Claims, conn: &DatabaseConnection) -> Option<Self> {
+        if claims.refresh {
+            return None;
+        }
+        match Self::get(claims.sub, conn).await {
+            Some(record) => Some(Self {
+                id: record.id,
+                username: record.username,
+            }),
+            None => None,
+        }
+    }
+
+    pub async fn get(user_id: i32, conn: &DatabaseConnection) -> Option<user::Model> {
+        match UserEntity::find()
+            .filter(user::Column::Id.eq(user_id))
+            .one(conn)
+            .await
+        {
+            Ok(rc) => rc,
+            Err(_) => None,
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -30,10 +64,10 @@ impl CreateUser<'_> {
         self.password.eq(self.password_2)
     }
 
-    pub async fn verified_login(&self, db: &DatabaseConnection) -> bool {
+    pub async fn verified_login(&self, conn: &DatabaseConnection) -> bool {
         let already = UserEntity::find()
             .filter(user::Column::Username.eq(self.username.clone()))
-            .one(db)
+            .one(conn)
             .await;
 
         match already {
@@ -45,11 +79,11 @@ impl CreateUser<'_> {
         }
     }
 
-    pub async fn insert(&self, db: &DatabaseConnection) -> Result<(), ErrorResponder> {
+    pub async fn insert(&self, conn: &DatabaseConnection) -> Result<(), ErrorResponder> {
         let verified = self.verify_password();
         match verified {
             true => {
-                let available = self.verified_login(db).await;
+                let available = self.verified_login(conn).await;
                 match available {
                     true => {
                         let salt = SaltString::generate(&mut OsRng);
@@ -67,7 +101,7 @@ impl CreateUser<'_> {
                         };
 
                         let _ = UserEntity::insert(new_user)
-                            .exec(db)
+                            .exec(conn)
                             .await
                             .map_err(|_| ErrorResponder::internal_error("Something went wrong!!!"));
 
@@ -77,6 +111,49 @@ impl CreateUser<'_> {
                 }
             }
             false => Err(ErrorResponder::bad_request("Password not match!")),
+        }
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for User {
+    type Error = ErrorResponder;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        fn is_valid(key: &str) -> Result<Claims, Error> {
+            Ok(decode_token(String::from(key))?)
+        }
+
+        match req.headers().get_one("authorization") {
+            None => Outcome::Failure((
+                Status::Unauthorized,
+                ErrorResponder::unauthorize("No Token provided!!!"),
+            )),
+            Some(key) => match is_valid(key) {
+                Ok(claims) => match req.guard::<&State<DBState>>().await {
+                    Outcome::Success(e) => match User::from_jwt_claims(claims, &e.conn).await {
+                        Some(u) => Outcome::Success(u),
+                        None => Outcome::Failure((
+                            Status::Unauthorized,
+                            ErrorResponder::unauthorize("Invalid Token!!!"),
+                        )),
+                    },
+                    Outcome::Failure(_) => Outcome::Failure((
+                        Status::InternalServerError,
+                        ErrorResponder::internal_error("Something went wrong"),
+                    )),
+                    Outcome::Forward(_) => Outcome::Failure((
+                        Status::InternalServerError,
+                        ErrorResponder::internal_error("Something went wrong"),
+                    )),
+                },
+                Err(err) => match &err.kind() {
+                    _ => Outcome::Failure((
+                        Status::Unauthorized,
+                        ErrorResponder::unauthorize(&format!("Error Token - {}", err)),
+                    )),
+                },
+            },
         }
     }
 }
