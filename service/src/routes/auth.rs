@@ -35,22 +35,15 @@ async fn refresh<'a>(
 ) -> Result<Json<JWTToken>, ErrorResponder> {
     // TODO deactivate previous refresh token
     let error_resp = ErrorResponder::bad_request("Invalid Token!!!");
-    match decode_token(refresh_body.refresh_token) {
-        Ok(claims) => {
-            if claims.refresh {
-                match User::get(claims.sub, &db.conn).await {
-                    Some(rc) => {
-                        let token = JWTToken::create_token(rc.id)?;
-                        Ok(Json(token))
-                    }
-                    None => Err(error_resp),
-                }
-            } else {
-                Err(error_resp)
+    if let Ok(claims) = decode_token(refresh_body.refresh_token) {
+        if claims.refresh {
+            if let Some(u) = User::get(claims.sub, &db.conn).await {
+                let token = JWTToken::create_token(u.id)?;
+                return Ok(Json(token));
             }
         }
-        Err(_) => Err(error_resp),
     }
+    Err(error_resp)
 }
 
 #[post("/logout", format = "application/json")]
