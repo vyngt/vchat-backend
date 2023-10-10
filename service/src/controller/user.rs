@@ -121,7 +121,7 @@ impl<'r> FromRequest<'r> for User {
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         fn is_valid(key: &str) -> Result<Claims, Error> {
-            Ok(decode_token(String::from(key))?)
+            Ok(decode_token(key)?)
         }
 
         match req.headers().get_one("authorization") {

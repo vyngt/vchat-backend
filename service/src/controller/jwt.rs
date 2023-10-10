@@ -49,7 +49,7 @@ pub fn create_token(
     )
 }
 
-pub fn decode_token(token: String) -> Result<Claims, ErrorKind> {
+pub fn decode_token(token: &str) -> Result<Claims, ErrorKind> {
     let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set.");
     let token = token.trim_start_matches("Bearer").trim();
     match decode::<Claims>(
@@ -69,13 +69,31 @@ pub struct JWTToken {
     refresh_token: String,
 }
 
+/// Get duration time(seconds)
+fn get_duration(variable: &str, default: i64) -> i64 {
+    match env::var(variable) {
+        Ok(s) => {
+            let d: i64 = s.parse().unwrap_or(default);
+            d
+        }
+        Err(_) => default,
+    }
+}
+
 impl JWTToken {
+    fn get_token_durations() -> (i64, i64) {
+        let access_duration = get_duration("JWT_ACCESS_DURATION", 60);
+        let refresh_duration = get_duration("JWT_REFRESH_DURATION", 300);
+        (access_duration, refresh_duration)
+    }
+
     fn _create_tokens(user_id: i32) -> Result<Self, Error> {
+        let (access, refresh) = Self::get_token_durations();
         let mut input = Utc::now().to_string();
         input.push_str(user_id.to_string().as_str());
         let jti = digest(input);
-        let access_token = create_token(user_id, &jti, false, Duration::minutes(1))?;
-        let refresh_token = create_token(user_id, &jti, true, Duration::minutes(5))?;
+        let access_token = create_token(user_id, &jti, false, Duration::seconds(access))?;
+        let refresh_token = create_token(user_id, &jti, true, Duration::seconds(refresh))?;
 
         Ok(Self {
             access_token,
