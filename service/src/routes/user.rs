@@ -19,6 +19,8 @@ async fn create<'a>(
 fn me(user: User, cookies: &CookieJar<'_>) -> Json<Value> {
     cookies.add_private(Cookie::new("user", user.username.clone()));
     Json(json!({
+        "id": user.id,
+        "username": user.username,
         "name": user.username,
     }))
 }
