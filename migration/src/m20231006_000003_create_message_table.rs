@@ -24,6 +24,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Message::Content).string().not_null())
                     .col(ColumnDef::new(Message::UserID).integer().not_null())
                     .col(ColumnDef::new(Message::RoomID).integer().not_null())
+                    .col(
+                        ColumnDef::new(Message::CreatedAt)
+                            .date_time()
+                            .default(Expr::current_timestamp())
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-msg-user-id")
@@ -55,4 +61,5 @@ pub enum Message {
     UserID,
     RoomID,
     Content,
+    CreatedAt,
 }

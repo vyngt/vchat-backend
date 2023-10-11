@@ -18,7 +18,7 @@ use service_entity::user;
 
 use super::jwt::{decode_token, Claims};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(crate = "rocket::serde")]
 pub struct User {
     pub id: i32,
