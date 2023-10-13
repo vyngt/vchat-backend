@@ -48,6 +48,7 @@ pub async fn rocket() -> _ {
         .attach(routes::user::stage())
         .attach(routes::auth::stage())
         .attach(routes::message::stage())
+        .attach(routes::room::stage())
         .mount("/", routes![all_options])
         .register("/", catchers![default_catcher])
 }
