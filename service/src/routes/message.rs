@@ -67,8 +67,17 @@ async fn post_msg<'a>(
     }
 }
 
+#[get("/channel/<room_id>/messages")]
+async fn get_messages_by_room_id(
+    room_id: usize,
+    _user: User,
+    db: &State<DBState>,
+) -> Json<Vec<Message>> {
+    Json(Message::fetch_from_room_id(room_id as i32, &db.conn).await)
+}
+
 pub fn stage() -> AdHoc {
     AdHoc::on_ignite("Message Stage", |rocket| async {
-        rocket.mount("/chat", routes![post_msg, events])
+        rocket.mount("/chat", routes![post_msg, events, get_messages_by_room_id])
     })
 }

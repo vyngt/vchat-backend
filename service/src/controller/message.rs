@@ -4,6 +4,7 @@ use rocket::serde::{Deserialize, Serialize};
 use sea_orm::*;
 use service_entity::message;
 use service_entity::prelude::Message as MessageEntity;
+use service_entity::prelude::User as UserEntity;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(crate = "rocket::serde")]
@@ -24,6 +25,32 @@ impl Message {
             room_id: msg.room_id,
             created_at: msg.created_at,
         }
+    }
+
+    pub async fn fetch_from_room_id(room_id: i32, conn: &DatabaseConnection) -> Vec<Self> {
+        let mut results = vec![];
+        if let Ok(records) = MessageEntity::find()
+            .filter(message::Column::RoomId.eq(room_id))
+            .order_by_asc(message::Column::CreatedAt)
+            .all(conn)
+            .await
+        {
+            for record in records {
+                if let Ok(u) = record.find_related(UserEntity).one(conn).await {
+                    if let Some(data) = u {
+                        results.push(Self::from_data(
+                            record,
+                            User {
+                                id: data.id,
+                                username: data.username,
+                            },
+                        ));
+                    }
+                }
+            }
+        };
+
+        results
     }
 }
 
