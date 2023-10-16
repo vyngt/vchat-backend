@@ -11,8 +11,11 @@ use rocket::serde::json::{json, Json, Value};
 async fn create<'a>(
     new_user: Json<CreateUser<'a>>,
     db: &State<DBState>,
-) -> Result<(), ErrorResponder> {
-    new_user.insert(&db.conn).await
+) -> Result<Json<Value>, ErrorResponder> {
+    match new_user.insert(&db.conn).await {
+        Ok(_) => Ok(Json(json! ({"message": "success"}))),
+        Err(resp) => Err(resp),
+    }
 }
 
 #[get("/me", format = "application/json")]
