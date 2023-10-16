@@ -20,8 +20,20 @@ async fn get_all_rooms(
     }
 }
 
+#[post("/", format = "application/json", data = "<room>")]
+async fn create_room<'a>(
+    room: Json<Room<'a>>,
+    _user: User,
+    db: &State<DBState>,
+) -> Result<Json<room::Model>, ErrorResponder> {
+    match room.insert(&db.conn).await {
+        Ok(r) => Ok(Json(r)),
+        Err(resp) => Err(resp),
+    }
+}
+
 pub fn stage() -> AdHoc {
     AdHoc::on_ignite("Room Stage", |rocket| async {
-        rocket.mount("/rooms", routes![get_all_rooms])
+        rocket.mount("/rooms", routes![get_all_rooms, create_room])
     })
 }
