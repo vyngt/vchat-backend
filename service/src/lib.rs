@@ -28,8 +28,15 @@ fn default_catcher(
     status: Status,
     _request: &Request<'_>,
 ) -> status::Custom<content::RawJson<String>> {
-    let msg = format!("{}", &status);
-    status::Custom(status, content::RawJson(msg))
+    let mut status_reason = "Unknown";
+    if let Some(reason) = status.reason() {
+        status_reason = reason;
+    }
+
+    status::Custom(
+        status,
+        content::RawJson(format!("{{\"message\": \"{status_reason}\"}}")),
+    )
 }
 
 #[launch]
