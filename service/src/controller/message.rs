@@ -29,20 +29,20 @@ impl Message {
 
     pub async fn fetch_from_room_id(room_id: i32, conn: &DatabaseConnection) -> Vec<Self> {
         let mut results = vec![];
-        if let Ok(records) = MessageEntity::find()
+        if let Ok(messages) = MessageEntity::find()
             .filter(message::Column::RoomId.eq(room_id))
             .order_by_asc(message::Column::CreatedAt)
             .all(conn)
             .await
         {
-            for record in records {
-                if let Ok(u) = record.find_related(UserEntity).one(conn).await {
-                    if let Some(data) = u {
+            if let Ok(users) = messages.load_one(UserEntity, conn).await {
+                for (msg_record, user_record) in messages.into_iter().zip(users) {
+                    if let Some(u) = user_record {
                         results.push(Self::from_data(
-                            record,
+                            msg_record,
                             User {
-                                id: data.id,
-                                username: data.username,
+                                id: u.id,
+                                username: u.username,
                             },
                         ));
                     }
