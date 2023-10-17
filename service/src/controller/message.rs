@@ -56,19 +56,19 @@ impl Message {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(crate = "rocket::serde")]
-pub struct MessageForm<'a> {
-    content: &'a str,
+pub struct MessageForm {
+    content: String,
     room_id: i32,
 }
 
-impl MessageForm<'_> {
+impl MessageForm {
     pub async fn insert(
         &self,
         conn: &DatabaseConnection,
         user: &User,
     ) -> Result<Message, ErrorResponder> {
         let new_message = message::ActiveModel {
-            content: ActiveValue::Set(self.content.to_string()),
+            content: ActiveValue::Set(self.content.clone()),
             user_id: ActiveValue::Set(user.id),
             room_id: ActiveValue::Set(self.room_id),
             ..Default::default()

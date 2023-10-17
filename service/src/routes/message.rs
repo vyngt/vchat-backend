@@ -52,8 +52,8 @@ async fn events(
 }
 
 #[post("/message", data = "<message>")]
-async fn post_msg<'a>(
-    message: Json<MessageForm<'a>>,
+async fn post_msg(
+    message: Json<MessageForm>,
     user: User,
     queue: &State<Sender<Message>>,
     db: &State<DBState>,
